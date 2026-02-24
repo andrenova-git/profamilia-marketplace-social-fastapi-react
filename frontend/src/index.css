@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+    font-family:
+        source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+@layer base {
+    :root {
+        --background: 210 20% 98%;
+        --foreground: 215 25% 15%;
+        --card: 0 0% 100%;
+        --card-foreground: 215 25% 15%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 215 25% 15%;
+        --primary: 214 95% 36%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 210 30% 92%;
+        --secondary-foreground: 215 25% 15%;
+        --muted: 210 25% 95%;
+        --muted-foreground: 215 15% 45%;
+        --accent: 210 30% 92%;
+        --accent-foreground: 215 25% 15%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 215 20% 88%;
+        --input: 215 20% 88%;
+        --ring: 214 95% 36%;
+        --radius: 0.75rem;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Manrope', sans-serif;
+    }
+    
+    /* Inputs mais suaves */
+    input, textarea, select {
+        @apply rounded-xl transition-all duration-200;
+    }
+    
+    input:focus, textarea:focus, select:focus {
+        @apply ring-2 ring-primary/20 border-primary/50;
+    }
+}
+
+@layer components {
+    /* Hero gradient */
+    .hero-gradient {
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+    }
+    
+    /* Card hover effect */
+    .card-hover {
+        @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+    }
+    
+    /* Floating search bar */
+    .search-floating {
+        @apply bg-white rounded-2xl shadow-xl border-0 px-6 py-4;
+        box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* Price highlight */
+    .price-highlight {
+        @apply text-2xl sm:text-3xl font-bold text-primary tracking-tight;
+    }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit;
+        margin-right: inherit;
+        margin-top: inherit;
+        margin-bottom: inherit;
+        padding-left: inherit;
+        padding-right: inherit;
+        padding-top: inherit;
+        padding-bottom: inherit;
+        column-gap: inherit;
+        row-gap: inherit;
+        gap: inherit;
+        border-left-width: inherit;
+        border-right-width: inherit;
+        border-top-width: inherit;
+        border-bottom-width: inherit;
+        border-left-style: inherit;
+        border-right-style: inherit;
+        border-top-style: inherit;
+        border-bottom-style: inherit;
+        border-left-color: inherit;
+        border-right-color: inherit;
+        border-top-color: inherit;
+        border-bottom-color: inherit;
+    }
+}

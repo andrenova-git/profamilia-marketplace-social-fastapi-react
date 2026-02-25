@@ -72,7 +72,6 @@ export default function AdminPage() {
   });
   const navigate = useNavigate();
 
-  // 1. Envolvendo loadMetrics com useCallback
   const loadMetrics = useCallback(async () => {
     try {
       const { count: totalOffers } = await supabase.from('offers').select('*', { count: 'exact', head: true });
@@ -172,9 +171,8 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);
     }
-  }, []); // Array vazio: a função não depende de nenhuma variável externa
+  }, []);
 
-  // 2. Envolvendo loadSalesByMonth com useCallback
   const loadSalesByMonth = useCallback(async () => {
     try {
       const { data } = await supabase
@@ -206,7 +204,6 @@ export default function AdminPage() {
     }
   }, []);
 
-  // 3. Envolvendo loadOffersByMonth com useCallback
   const loadOffersByMonth = useCallback(async () => {
     try {
       const { data } = await supabase
@@ -235,7 +232,6 @@ export default function AdminPage() {
     }
   }, []);
 
-  // 4. Envolvendo loadData com useCallback
   const loadData = useCallback(async () => {
     try {
       const [profilesRes, allProfilesRes, offersRes, reviewsRes, disputesRes, salesRes] = await Promise.all([
@@ -300,7 +296,6 @@ export default function AdminPage() {
     }
   }, []);
 
-  // 5. O loadAllSales já estava com useCallback na versão anterior
   const loadAllSales = useCallback(async () => {
     try {
       let query = supabase.from('sales_reports').select('*').order('created_at', { ascending: false });
@@ -346,7 +341,6 @@ export default function AdminPage() {
     }
   }, [salesFilter]);
 
-  // 6. Colocando TUDO no array de dependências do checkAdmin
   const checkAdmin = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -371,9 +365,8 @@ export default function AdminPage() {
     loadMetrics();
     loadSalesByMonth();
     loadOffersByMonth();
-  }, [navigate, loadData, loadMetrics, loadSalesByMonth, loadOffersByMonth]); // <--- Correção final de dependências
+  }, [navigate, loadData, loadMetrics, loadSalesByMonth, loadOffersByMonth]);
 
-  // Disparando os hooks
   useEffect(() => {
     checkAdmin();
   }, [checkAdmin]);
@@ -410,6 +403,28 @@ export default function AdminPage() {
       loadData();
     } catch (error) {
       toast.error('Erro ao aprovar perfil');
+    }
+  };
+
+  // FUNÇÃO DE PROMOVER A ADMIN
+  const handlePromoteToAdmin = async (profileId, profileName) => {
+    if (!window.confirm(`Tem certeza que deseja promover ${profileName || 'este usuário'} a Administrador? Esta ação dará acesso total ao painel.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: 'admin' })
+        .eq('id', profileId);
+
+      if (error) throw error;
+
+      toast.success('Usuário promovido a administrador com sucesso!');
+      loadData();
+    } catch (error) {
+      console.error('Erro ao promover usuário:', error);
+      toast.error('Erro ao promover usuário a administrador.');
     }
   };
 
@@ -932,6 +947,7 @@ export default function AdminPage() {
 
                   return (
                     <>
+                      {/* VERSÃO DESKTOP (TABELA) */}
                       <div className="hidden md:block overflow-x-auto">
                         <Table>
                           <TableHeader>
@@ -957,14 +973,80 @@ export default function AdminPage() {
                                 </TableCell>
                                 <TableCell className="text-muted-foreground text-sm">{new Date(p.created_at).toLocaleDateString('pt-BR')}</TableCell>
                                 <TableCell>
-                                  {!p.is_approved && (
-                                    <Button size="sm" onClick={() => handleApproveProfile(p.id)}><CheckCircle className="h-4 w-4 mr-1" /> Aprovar</Button>
-                                  )}
+                                  <div className="flex flex-wrap gap-2">
+                                    {!p.is_approved && (
+                                      <Button size="sm" onClick={() => handleApproveProfile(p.id)}>
+                                        <CheckCircle className="h-4 w-4 mr-1" /> Aprovar
+                                      </Button>
+                                    )}
+                                    {p.role !== 'admin' && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                        onClick={() => handlePromoteToAdmin(p.id, p.name)}
+                                      >
+                                        <Shield className="h-4 w-4 mr-1" /> Tornar Admin
+                                      </Button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
+                      </div>
+
+                      {/* VERSÃO MOBILE (CARDS) */}
+                      <div className="md:hidden space-y-4">
+                        {filteredProfiles.map(p => (
+                          <Card key={p.id} className="border-slate-200">
+                            <CardContent className="pt-6">
+                              <div className="flex justify-between items-start mb-4">
+                                <div className="max-w-[70%]">
+                                  <h3 className="font-bold text-slate-900 truncate">{p.name || 'Sem nome'}</h3>
+                                  <p className="text-sm text-muted-foreground">{p.whatsapp || '-'}</p>
+                                </div>
+                                {p.role === 'admin' ? (
+                                  <Badge className="bg-blue-100 text-blue-700">Admin</Badge>
+                                ) : (
+                                  <Badge variant="outline">Usuário</Badge>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 mb-4">
+                                <span className="text-xs text-muted-foreground">Status:</span>
+                                {p.is_approved ? (
+                                  <Badge className="bg-green-100 text-green-700">Aprovado</Badge>
+                                ) : (
+                                  <Badge className="bg-yellow-100 text-yellow-700">Pendente</Badge>
+                                )}
+                              </div>
+
+                              <div className="flex flex-col gap-2">
+                                {!p.is_approved && (
+                                  <Button size="sm" className="w-full" onClick={() => handleApproveProfile(p.id)}>
+                                    <CheckCircle className="h-4 w-4 mr-1" /> Aprovar Perfil
+                                  </Button>
+                                )}
+                                {p.role !== 'admin' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
+                                    onClick={() => handlePromoteToAdmin(p.id, p.name)}
+                                  >
+                                    <Shield className="h-4 w-4 mr-1" /> Tornar Administrador
+                                  </Button>
+                                )}
+                              </div>
+
+                              <div className="mt-4 pt-4 border-t text-[10px] text-muted-foreground text-center">
+                                Cadastrado em {new Date(p.created_at).toLocaleDateString('pt-BR')}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
                     </>
                   );

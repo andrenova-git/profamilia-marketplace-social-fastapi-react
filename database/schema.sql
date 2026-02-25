@@ -137,24 +137,31 @@ ALTER TABLE sales_reports ENABLE ROW LEVEL SECURITY;
 -- PARTE 5: POLÍTICAS RLS - PROFILES
 -- ====================================================================
 
+-- Limpeza de políticas existentes para evitar conflitos
 DROP POLICY IF EXISTS "profiles_select_policy" ON profiles;
 DROP POLICY IF EXISTS "profiles_insert_policy" ON profiles;
 DROP POLICY IF EXISTS "profiles_update_policy" ON profiles;
+DROP POLICY IF EXISTS "Permitir que admins atualizem qualquer perfil" ON profiles;
 
--- SELECT: Todos podem ver perfis
+-- SELECT: Todos podem ver perfis (necessário para ver nomes de vendedores/autores)
 CREATE POLICY "profiles_select_policy"
     ON profiles FOR SELECT
     USING (true);
 
--- INSERT: Usuário pode criar seu próprio perfil
+-- INSERT: Usuário pode criar seu próprio perfil durante o cadastro
 CREATE POLICY "profiles_insert_policy"
     ON profiles FOR INSERT
     WITH CHECK (auth.uid() = id);
 
--- UPDATE: Usuário pode atualizar seu perfil ou admin pode atualizar qualquer um
+-- UPDATE: Usuário pode atualizar seu próprio perfil OU um admin pode atualizar qualquer perfil
+-- Esta regra permite que o admin aprove usuários e promova outros a admin
 CREATE POLICY "profiles_update_policy"
     ON profiles FOR UPDATE
-    USING (auth.uid() = id OR public.is_admin());
+    USING (
+        auth.uid() = id 
+        OR 
+        (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
+    );
 
 -- ====================================================================
 -- PARTE 6: POLÍTICAS RLS - OFFERS

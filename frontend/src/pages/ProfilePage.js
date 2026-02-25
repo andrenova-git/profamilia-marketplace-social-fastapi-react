@@ -218,6 +218,30 @@ export default function ProfilePage() {
     }
   };
 
+  const handleSuspendAccount = async () => {
+    const newStatus = profile?.status === 'suspended' ? 'active' : 'suspended';
+    const actionName = newStatus === 'suspended'
+      ? 'Suspender sua conta? Suas ofertas não ficarão mais visíveis ao público.'
+      : 'Reativar sua conta? Suas ofertas voltarão a ficar visíveis.';
+
+    if (!window.confirm(actionName)) return;
+
+    try {
+      const { error } = await supabase.rpc('update_profile_status', {
+        target_user_id: user.id,
+        new_status: newStatus
+      });
+
+      if (error) throw error;
+
+      setProfile({ ...profile, status: newStatus });
+      toast.success(newStatus === 'suspended' ? 'Conta suspensa com sucesso.' : 'Conta reativada com sucesso.');
+    } catch (error) {
+      console.error('Erro ao mudar status:', error);
+      toast.error('Erro ao mudar status da conta');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -475,6 +499,21 @@ export default function ProfilePage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tipo de conta</span>
                   <span className="capitalize">{profile?.role === 'admin' ? 'Administrador' : 'Usuário'}</span>
+                </div>
+
+                <div className="pt-4 mt-4 border-t">
+                  <Button
+                    variant={profile?.status === 'suspended' ? 'default' : 'destructive'}
+                    className="w-full"
+                    onClick={handleSuspendAccount}
+                  >
+                    {profile?.status === 'suspended' ? 'Reativar Minha Conta' : 'Suspender Minha Conta'}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    {profile?.status === 'suspended'
+                      ? 'Ao reativar, suas ofertas aprovadas voltarão a aparecer.'
+                      : 'Suas ofertas ficarão ocultas enquanto a conta estiver suspensa.'}
+                  </p>
                 </div>
               </CardContent>
             </Card>

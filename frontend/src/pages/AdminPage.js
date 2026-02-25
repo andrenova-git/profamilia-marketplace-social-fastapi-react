@@ -317,11 +317,31 @@ import {
     }
   };
 
-  const handleDeleteProfile = async (id, name) => {
-    if (!window.confirm(`Excluir permanentemente ${name || 'este perfil'}? Esta ação é irreversível.`)) return;
+  const handleToggleProfileStatus = async (id, currentStatus, name) => {
+    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    const actionName = newStatus === 'suspended' ? 'Suspender' : 'Reativar';
+    if (!window.confirm(`${actionName} conta de ${name || 'este perfil'}?`)) return;
 
     try {
-      const { error } = await supabase.from('profiles').delete().eq('id', id);
+      const { error } = await supabase.rpc('update_profile_status', {
+        target_user_id: id,
+        new_status: newStatus
+      });
+      if (error) throw error;
+
+      toast.success(`Perfil ${newStatus === 'suspended' ? 'suspenso' : 'reativado'}.`);
+      await Promise.all([loadData(), loadMetrics()]);
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao mudar status do perfil.');
+    }
+  };
+
+  const handleDeleteProfile = async (id, name) => {
+    if (!window.confirm(`Excluir permanentemente ${name || 'este perfil'}? Esta ação é irreversível e excluirá todo o histórico desse usuário no sistema.`)) return;
+
+    try {
+      const { error } = await supabase.rpc('admin_delete_user', { target_user_id: id });
       if (error) throw error;
 
       // Remove imediatamente da interface (estado local) para que desapareça da aba e das listagens.
@@ -857,6 +877,9 @@ import {
                                 >
                                   {isApproved ? 'Aprovado' : 'Pendente'}
                                 </Badge>
+                                {p.status === 'suspended' && (
+                                  <Badge variant="destructive" className="ml-2 mt-1 lg:mt-0">Suspenso</Badge>
+                                )}
                               </TableCell>
 
                               <TableCell>
@@ -915,6 +938,19 @@ import {
                                     )
                                   )}
 
+                                  {/* Suspender / Ativar */}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className={p.status === 'suspended' ? "text-green-600 border-green-200" : "text-amber-600 border-amber-200"}
+                                    disabled={isSelf}
+                                    onClick={() => handleToggleProfileStatus(p.id, p.status || 'active', p.name)}
+                                    title={p.status === 'suspended' ? 'Reativar Conta' : 'Suspender Conta'}
+                                  >
+                                    {p.status === 'suspended' ? <CheckCircle className="h-4 w-4 mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
+                                    {p.status === 'suspended' ? 'Reativar' : 'Suspender'}
+                                  </Button>
+
                                   {/* Excluir (bloqueia autoexclusão) */}
                                   <Button
                                     size="sm"
@@ -967,15 +1003,20 @@ import {
                                   {isAdmin ? 'Admin' : 'Usuário'}
                                 </Badge>
 
-                                <Badge
-                                  className={
-                                    isApproved
-                                      ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                                      : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100'
-                                  }
-                                >
-                                  {isApproved ? 'Aprovado' : 'Pendente'}
-                                </Badge>
+                                <div className="flex gap-1 flex-wrap justify-end">
+                                  <Badge
+                                    className={
+                                      isApproved
+                                        ? 'bg-green-100 text-green-700 hover:bg-green-100'
+                                        : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100'
+                                    }
+                                  >
+                                    {isApproved ? 'Aprovado' : 'Pendente'}
+                                  </Badge>
+                                  {p.status === 'suspended' && (
+                                    <Badge variant="destructive">Suspenso</Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
@@ -1027,13 +1068,24 @@ import {
 
                               <Button
                                 size="sm"
+                                variant="outline"
+                                className={p.status === 'suspended' ? "text-green-600 border-green-200 sm:col-span-2" : "text-amber-600 border-amber-200 sm:col-span-2"}
+                                disabled={isSelf}
+                                onClick={() => handleToggleProfileStatus(p.id, p.status || 'active', p.name)}
+                              >
+                                {p.status === 'suspended' ? <CheckCircle className="h-4 w-4 mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
+                                {p.status === 'suspended' ? 'Reativar Conta' : 'Suspender Conta'}
+                              </Button>
+
+                              <Button
+                                size="sm"
                                 variant="destructive"
                                 disabled={isSelf}
                                 onClick={() => handleDeleteProfile(p.id, p.name)}
                                 className="sm:col-span-2"
                               >
                                 <Trash2 className="h-4 w-4 mr-1" />
-                                Excluir
+                                Excluir Permanentemente
                               </Button>
                             </div>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { whatsappService } from '@/lib/whatsappService'; // Importe adicionado
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,6 +86,22 @@ export default function AuthPage() {
       });
 
       if (error) throw error;
+
+      // ---- INÍCIO DO GATILHO DO WHATSAPP ----
+      try {
+        const adminPhone = process.env.REACT_APP_ADMIN_WHATSAPP;
+        if (adminPhone) {
+          console.log("Tentando notificar admin sobre novo cadastro:", adminPhone);
+          await whatsappService.notifyNewRegistration(adminPhone, signUpData.name);
+          console.log("Notificação enviada com sucesso!");
+        } else {
+          console.warn("Variável REACT_APP_ADMIN_WHATSAPP não configurada. Notificação ignorada.");
+        }
+      } catch (wppError) {
+        // Logamos o erro silenciosamente para não impedir o usuário de se cadastrar
+        console.error("Erro ao enviar notificação de WhatsApp:", wppError);
+      }
+      // ---- FIM DO GATILHO DO WHATSAPP ----
 
       setShowEmailSent(true);
       setSignUpData({ email: '', password: '', name: '', whatsapp: '' });
@@ -202,14 +219,14 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50 p-4">
       {/* Background Pattern */}
-      <div className="fixed inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOCAxOC04LjA1OSAxOC0xOC04LjA1OS0xOC0xOC0xOHptMCAzMmMtNy43MzIgMC0xNC02LjI2OC0xNC0xNHM2LjI2OC0xNCAxNC0xNCAxNCA2LjI2OCAxNCAxNC02LjI2OCAxNC0xNCAxNHoiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iLjAyIi8+PC9nPjwvc3ZnPg==')] opacity-50 pointer-events-none"></div>
-      
+      <div className="fixed inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOCAxOC04LjA1OSAxOC0xOC04LjA1OS0xOC0xOC0xOHzmMCAzMmMtNy43MzIgMC0xNC02LjI2OC0xNC0xNHM2LjI2OC0xNCAxNC0xNCAxNCA2LjI2OCAxNCAxNC02LjI2OCAxNC0xNCAxNHoiIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iLjAyIi8+PC9nPjwvc3ZnPg==')] opacity-50 pointer-events-none"></div>
+
       <Card className="relative w-full max-w-md shadow-xl rounded-2xl border-0 bg-white/95 backdrop-blur-sm">
         <CardHeader className="text-center space-y-6 pt-8 pb-4 px-8">
           <div className="flex justify-center">
-            <img 
-              src={LOGO_PRO_FAMILIA} 
-              alt="Pró-Família Geração de Renda" 
+            <img
+              src={LOGO_PRO_FAMILIA}
+              alt="Pró-Família Geração de Renda"
               className="h-24 sm:h-28 w-auto object-contain"
             />
           </div>
@@ -297,7 +314,7 @@ export default function AuthPage() {
                     'Entrar'
                   )}
                 </Button>
-                
+
                 {/* Botão de Recuperação de Senha */}
                 <button
                   type="button"

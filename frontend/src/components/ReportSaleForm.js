@@ -181,15 +181,26 @@ export default function ReportSaleForm({ onSaleReported }) {
 
       if (error) throw error;
 
-      // Notificar admin via WhatsApp
-      const message = `💰 *Nova Venda Reportada*\n\n` +
-        `Vendedor: ${profile?.name || 'Usuário'}\n` +
-        `Oferta: ${offer?.title || 'N/A'}\n` +
-        `Tipo: ${formData.sale_type === 'venda' ? 'Venda de Produto' : 'Prestação de Serviço'}\n` +
-        `Valor: R$ ${parseFloat(formData.amount).toFixed(2)}\n\n` +
-        `⚠️ Aguardando aprovação. Verifique o comprovante no painel admin.`;
+      // ---- INÍCIO DO GATILHO DO WHATSAPP ----
+      try {
+        const adminPhone = process.env.REACT_APP_ADMIN_WHATSAPP;
+        if (adminPhone) {
+          const message = `💰 *Nova Venda Reportada*\n\n` +
+            `Vendedor: ${profile?.name || 'Usuário'}\n` +
+            `Oferta: ${offer?.title || 'N/A'}\n` +
+            `Tipo: ${formData.sale_type === 'venda' ? 'Venda de Produto' : 'Prestação de Serviço'}\n` +
+            `Valor: R$ ${parseFloat(formData.amount).toFixed(2)}\n\n` +
+            `⚠️ Aguardando aprovação. Verifique o comprovante no painel admin.`;
 
-      await whatsappService.sendMessage(process.env.REACT_APP_ADMIN_WHATSAPP, message);
+          await whatsappService.sendMessage(adminPhone, message);
+          console.log("Notificação de venda enviada para admin!");
+        } else {
+          console.warn("Número de admin não configurado na Vercel.");
+        }
+      } catch (wppError) {
+        console.error("Erro ao enviar notificação de WhatsApp:", wppError);
+      }
+      // ---- FIM DO GATILHO DO WHATSAPP ----
 
       toast.success('Venda reportada! Aguardando aprovação do administrador.');
       setFormData({ offer_id: '', sale_type: 'venda', amount: '', notes: '', proof_image: '' });
@@ -215,7 +226,7 @@ export default function ReportSaleForm({ onSaleReported }) {
         <DialogHeader>
           <DialogTitle>Reportar Venda ou Serviço</DialogTitle>
           <DialogDescription>
-            Informe suas vendas para ajudar a medir o impacto da plataforma. 
+            Informe suas vendas para ajudar a medir o impacto da plataforma.
             <strong> É obrigatório anexar comprovante de pagamento.</strong>
           </DialogDescription>
         </DialogHeader>
@@ -274,7 +285,7 @@ export default function ReportSaleForm({ onSaleReported }) {
             <p className="text-xs text-muted-foreground">
               Anexe uma foto ou print do comprovante (PIX, transferência, recibo, etc.)
             </p>
-            
+
             {formData.proof_image ? (
               <Card className="relative overflow-hidden">
                 <CardContent className="p-2">

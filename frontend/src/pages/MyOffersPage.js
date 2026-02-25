@@ -53,7 +53,6 @@ export default function MyOffersPage() {
     images: []
   });
 
-  // CORREÇÃO 1: Envolvido em useCallback
   const loadOffers = useCallback(async (userId) => {
     try {
       const { data, error } = await supabase
@@ -71,7 +70,6 @@ export default function MyOffersPage() {
     }
   }, []);
 
-  // CORREÇÃO 2: Dependência do loadOffers adicionada
   const checkAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -143,14 +141,21 @@ export default function MyOffersPage() {
         if (isAdmin) {
           toast.success('Oferta criada e publicada com sucesso!');
         } else {
-          // CORREÇÃO 3: Fallback seguro para o WhatsApp
-          if (whatsappService.notifyNewOffer) {
-            try {
-              await whatsappService.notifyNewOffer(formData.title, profile.name);
-            } catch (whatsError) {
-              console.log('Aviso: Falha ao notificar admin no WhatsApp. A oferta foi salva.', whatsError);
+          // ---- INÍCIO DO GATILHO DO WHATSAPP ----
+          try {
+            const adminPhone = process.env.REACT_APP_ADMIN_WHATSAPP;
+            if (adminPhone) {
+              const normalMessage = `📦 *Nova Oferta Aguardando Aprovação!*\n\nO usuário *${profile.name}* acabou de cadastrar uma nova oferta:\n\n*Título:* ${formData.title}\n*Categoria:* ${formData.category}\n*Bairro:* ${formData.neighborhood || 'Não informado'}\n\nAcesse o painel para moderar e ativar a oferta.`;
+              await whatsappService.sendMessage(adminPhone, normalMessage);
+              console.log("Notificação de nova oferta enviada para admin!");
+            } else {
+              console.warn("Número de admin não configurado na Vercel.");
             }
+          } catch (wppError) {
+            console.error("Erro ao enviar notificação de WhatsApp:", wppError);
           }
+          // ---- FIM DO GATILHO DO WHATSAPP ----
+
           toast.success('Oferta criada! Aguardando aprovação do administrador.');
         }
       }

@@ -83,23 +83,29 @@ export default function ReviewForm({ offerId, offerTitle, onReviewSubmitted }) {
 
       if (error) throw error;
 
-      // Notificar admin via WhatsApp sobre nova avaliação
-      // Incluir aviso se for avaliação repetida
-      const isRepeat = evaluationNumber > 1;
-      const reviewMessage = isRepeat
-        ? `📝 *Nova Avaliação (REPETIDA #${evaluationNumber})*\n\n⚠️ ATENÇÃO: Este usuário já avaliou esta oferta ${previousReviewsCount}x antes!\n\nOferta: ${offerTitle}\nAutor: ${authorProfile?.name || 'Usuário'}\nNota: ${'⭐'.repeat(rating)} (${rating}/5)\n\nVerifique se houve nova compra antes de aprovar.`
-        : null;
+      // ---- INÍCIO DO GATILHO DO WHATSAPP ----
+      try {
+        const adminPhone = process.env.REACT_APP_ADMIN_WHATSAPP;
+        if (adminPhone) {
+          const isRepeat = evaluationNumber > 1;
 
-      if (isRepeat) {
-        // Fallback condicional seguro
-        if (whatsappService.sendMessage && process.env.REACT_APP_ADMIN_WHATSAPP) {
-          await whatsappService.sendMessage(process.env.REACT_APP_ADMIN_WHATSAPP, reviewMessage);
+          if (isRepeat) {
+            // Notificação de avaliação REPETIDA
+            const repeatMessage = `📝 *Nova Avaliação (REPETIDA #${evaluationNumber})*\n\n⚠️ ATENÇÃO: Este usuário já avaliou esta oferta ${previousReviewsCount}x antes!\n\nOferta: ${offerTitle}\nAutor: ${authorProfile?.name || 'Usuário'}\nNota: ${'⭐'.repeat(rating)} (${rating}/5)\n\nVerifique no painel se houve nova compra antes de aprovar.`;
+            await whatsappService.sendMessage(adminPhone, repeatMessage);
+          } else {
+            // Notificação de avaliação NORMAL (Primeira vez)
+            const normalMessage = `⭐ *Nova Avaliação Pendente!*\n\nOferta: ${offerTitle}\nAutor: ${authorProfile?.name || 'Usuário'}\nNota: ${'⭐'.repeat(rating)} (${rating}/5)\n\nAcesse o painel para moderar.`;
+            await whatsappService.sendMessage(adminPhone, normalMessage);
+          }
+          console.log("Notificação de avaliação enviada para admin!");
+        } else {
+          console.warn("Número de admin não configurado na Vercel.");
         }
-      } else {
-        if (whatsappService.notifyNewReview) {
-          await whatsappService.notifyNewReview(offerTitle, authorProfile?.name || 'Usuário', rating);
-        }
+      } catch (wppError) {
+        console.error("Erro ao enviar notificação de WhatsApp:", wppError);
       }
+      // ---- FIM DO GATILHO DO WHATSAPP ----
 
       toast.success('Avaliação enviada! Aguardando aprovação do moderador.');
       setRating(0);
@@ -149,8 +155,8 @@ export default function ReviewForm({ offerId, offerTitle, onReviewSubmitted }) {
                 >
                   <Star
                     className={`h-8 w-8 transition-colors ${star <= (hoverRating || rating)
-                        ? 'fill-yellow-400 text-yellow-400'
-                        : 'text-gray-300'
+                      ? 'fill-yellow-400 text-yellow-400'
+                      : 'text-gray-300'
                       }`}
                   />
                 </button>
@@ -231,8 +237,8 @@ export function ReviewCard({ review }) {
                   <Star
                     key={star}
                     className={`h-4 w-4 ${star <= review.rating
-                        ? 'fill-yellow-400 text-yellow-400'
-                        : 'text-gray-300'
+                      ? 'fill-yellow-400 text-yellow-400'
+                      : 'text-gray-300'
                       }`}
                   />
                 ))}
@@ -309,8 +315,8 @@ export function ReviewsList({ offerId }) {
             <Star
               key={star}
               className={`h-5 w-5 ${star <= Math.round(averageRating)
-                  ? 'fill-yellow-400 text-yellow-400'
-                  : 'text-gray-300'
+                ? 'fill-yellow-400 text-yellow-400'
+                : 'text-gray-300'
                 }`}
             />
           ))}

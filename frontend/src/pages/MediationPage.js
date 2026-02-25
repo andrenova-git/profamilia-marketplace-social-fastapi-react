@@ -51,7 +51,6 @@ export default function MediationPage() {
     images: []
   });
 
-  // CORREÇÃO 1: loadData envolvido em useCallback para ser referência estável
   const loadData = useCallback(async (userId, role) => {
     try {
       let query = supabase.from('disputes').select(`
@@ -103,7 +102,6 @@ export default function MediationPage() {
     }
   }, []);
 
-  // CORREÇÃO 2: checkAuth referenciando corretamente o loadData
   const checkAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -183,19 +181,25 @@ export default function MediationPage() {
         .eq('id', offerData.owner_id)
         .single();
 
-      // CORREÇÃO 3: Fallback seguro para o WhatsApp. 
-      // A mediação é salva mesmo se o WhatsApp falhar.
-      if (whatsappService.notifyNewDispute) {
-        try {
-          await whatsappService.notifyNewDispute(
-            formData.title,
-            profile.name,
-            defendantProfile.name
-          );
-        } catch (whatsError) {
-          console.log('Aviso: Falha ao enviar notificação do WhatsApp. A mediação foi registrada.', whatsError);
+      // ---- INÍCIO DO GATILHO DO WHATSAPP (NOVA MEDIAÇÃO) ----
+      try {
+        const adminPhone = process.env.REACT_APP_ADMIN_WHATSAPP;
+        if (adminPhone) {
+          const message = `⚖️ *Nova Mediação (ODR) Solicitada!*\n\n` +
+            `*Problema:* ${formData.title}\n` +
+            `*Comprador:* ${profile.name}\n` +
+            `*Vendedor Alvo:* ${defendantProfile?.name || 'Vendedor'}\n\n` +
+            `Acesse o painel administrativo para iniciar a resolução do conflito.`;
+
+          await whatsappService.sendMessage(adminPhone, message);
+          console.log("Notificação de nova mediação enviada para o admin!");
+        } else {
+          console.warn("Número de admin não configurado na Vercel.");
         }
+      } catch (wppError) {
+        console.error("Erro ao enviar notificação de WhatsApp:", wppError);
       }
+      // ---- FIM DO GATILHO DO WHATSAPP ----
 
       toast.success('Solicitação de mediação criada com sucesso!');
       setDialogOpen(false);
@@ -233,6 +237,20 @@ export default function MediationPage() {
         .eq('id', selectedMediation.id);
 
       if (error) throw error;
+
+      // ---- INÍCIO DO GATILHO DE MENSAGEM (SE FOR USUÁRIO) ----
+      if (profile.role !== 'admin') {
+        try {
+          const adminPhone = process.env.REACT_APP_ADMIN_WHATSAPP;
+          if (adminPhone) {
+            const message = `💬 *Nova Mensagem na Mediação*\n\nO usuário *${profile.name}* enviou uma mensagem na mediação "${selectedMediation.title}".`;
+            await whatsappService.sendMessage(adminPhone, message);
+          }
+        } catch (err) {
+          console.error("Erro no envio do whatsapp da mensagem", err);
+        }
+      }
+      // ---- FIM DO GATILHO ----
 
       // Atualizar localmente
       setSelectedMediation({

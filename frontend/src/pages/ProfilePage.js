@@ -11,6 +11,7 @@ import { Loader2, User, Mail, Phone, Camera, Save, ShoppingBag, Star, Scale, Che
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
 
+// Profile Page - user profile management and statistics
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,6 +34,7 @@ export default function ProfilePage() {
   });
   const navigate = useNavigate();
 
+  // CORREÇÃO 1: loadProfile envolvido em useCallback
   const loadProfile = useCallback(async (userId) => {
     try {
       const { data, error } = await supabase
@@ -53,11 +55,10 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
       toast.error('Erro ao carregar perfil');
-    } finally {
-      setLoading(false);
     }
   }, []);
 
+  // CORREÇÃO 2: loadStats envolvido em useCallback
   const loadStats = useCallback(async (userId) => {
     try {
       // Ofertas do usuário
@@ -107,16 +108,25 @@ export default function ProfilePage() {
     }
   }, []);
 
+  // CORREÇÃO 3: checkAuth com dependências e carregamento paralelo otimizado
   const checkAuth = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate('/auth');
-      return;
-    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/auth');
+        return;
+      }
 
-    setUser(session.user);
-    await loadProfile(session.user.id);
-    await loadStats(session.user.id);
+      setUser(session.user);
+
+      // Executa as duas consultas ao banco simultaneamente para carregar mais rápido
+      await Promise.all([
+        loadProfile(session.user.id),
+        loadStats(session.user.id)
+      ]);
+    } finally {
+      setLoading(false);
+    }
   }, [navigate, loadProfile, loadStats]);
 
   useEffect(() => {

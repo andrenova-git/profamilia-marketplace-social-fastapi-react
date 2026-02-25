@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Home, Package, Shield, User, LogOut, MessageSquare } from 'lucide-react';
@@ -20,186 +20,233 @@ import {
 } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-// Logos salvas na pasta /public do projeto
-const LOGO_CASA_UNIAO = '/logo-cdu.png';
-const LOGO_PRO_FAMILIA = '/logo-profamilia.png';
+// Logos oficiais (armazenadas localmente em /public/images/)
+const LOGO_CASA_UNIAO = '/images/logo-casa-uniao.png';
+const LOGO_PRO_FAMILIA = '/images/logo-pro-familia.png';
 
 export default function Header() {
-  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  const checkAuth = useCallback(async () => {
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    setSession(currentSession);
-
-    if (currentSession) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', currentSession.user.id)
-        .single();
-      setProfile(profileData);
-    } else {
-      setProfile(null);
-    }
-  }, []);
-
   useEffect(() => {
-    checkAuth();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadProfile(session.user.id);
+      }
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      checkAuth();
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, [checkAuth]);
+  }, []);
+
+  const loadProfile = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Erro ao carregar perfil:', error);
+        return;
+      }
+
+      setProfile(data);
+    } catch (error) {
+      console.error('Erro ao carregar perfil:', error);
+    }
+  };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/auth');
-    setIsMobileMenuOpen(false);
+    setUser(null);
+    setProfile(null);
+    setMobileMenuOpen(false);
+
+    try {
+      await supabase.auth.signOut({ scope: 'global' });
+    } catch (error) {
+      console.error('Erro ao fazer logout (ignorando):', error);
+    }
+
+    localStorage.removeItem('sb-xyqwymmbhtphfejlehjy-auth-token');
+    localStorage.removeItem('supabase.auth.token');
+    sessionStorage.clear();
+
+    window.location.href = '/auth';
   };
 
   const handleNavigate = (path) => {
+    setMobileMenuOpen(false);
     navigate(path);
-    setIsMobileMenuOpen(false);
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-        {/* Logos e Nome - Desktop & Mobile */}
-        <div
-          className="flex items-center gap-3 cursor-pointer group"
+    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 shadow-sm">
+      {/* Container com max-width para manter harmonia em monitores grandes */}
+      <div className="max-w-[1400px] mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+
+        {/* ===== LOGOS - Canto Esquerdo ===== */}
+        <button
+          data-testid="logo-home"
           onClick={() => navigate('/')}
+          className="flex items-center gap-3 sm:gap-4 lg:gap-5 hover:opacity-90 transition-opacity flex-shrink-0"
         >
-          <div className="flex items-center gap-2">
-            <img
-              src={LOGO_CASA_UNIAO}
-              alt="Casa da União"
-              className="h-10 md:h-12 w-auto object-contain transition-transform group-hover:scale-105"
-            />
-            <div className="w-[1px] h-8 bg-slate-200 hidden sm:block" />
-            <img
-              src={LOGO_PRO_FAMILIA}
-              alt="Pró-Família"
-              className="h-10 md:h-12 w-auto object-contain transition-transform group-hover:scale-105"
-            />
-          </div>
-          <div className="hidden lg:flex flex-col ml-1">
-            <span className="text-lg font-bold leading-tight text-slate-800">Pró-Família</span>
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">Conecta</span>
-          </div>
-        </div>
+          {/* Logo Casa da União - Tamanho generoso */}
+          <img
+            src={LOGO_CASA_UNIAO}
+            alt="Associação Beneficente Casa da União"
+            className="h-16 sm:h-18 md:h-20 lg:h-[88px] w-auto object-contain"
+          />
 
-        {/* Navegação Desktop */}
-        <nav className="hidden md:flex items-center gap-6">
-          <Button variant="ghost" onClick={() => navigate('/')} className="text-base font-medium">
-            Início
-          </Button>
-          <Button variant="ghost" onClick={() => navigate('/mediacao')} className="text-base font-medium">
-            Mediação
-          </Button>
+          {/* Divisor vertical */}
+          <div className="h-12 sm:h-14 lg:h-16 w-px bg-gray-300" />
 
-          {session ? (
-            <div className="flex items-center gap-4 ml-2">
+          {/* Logo Pró-Família - Tamanho generoso */}
+          <img
+            src={LOGO_PRO_FAMILIA}
+            alt="Pró-Família Geração de Renda"
+            className="h-16 sm:h-18 md:h-20 lg:h-[88px] w-auto object-contain"
+          />
+        </button>
+
+        {/* ===== NAVEGAÇÃO DESKTOP - Direita ===== */}
+        <nav className="hidden md:flex items-center gap-2 lg:gap-4 ml-8">
+          {user ? (
+            <>
+              <Button
+                data-testid="btn-minhas-ofertas"
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/minhas-ofertas')}
+                className="text-sm lg:text-base"
+              >
+                <Package className="h-4 w-4 mr-2" />
+                Minhas Ofertas
+              </Button>
+
+              {profile?.role === 'admin' && (
+                <Button
+                  data-testid="btn-admin"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/admin')}
+                  className="text-primary font-semibold text-sm lg:text-base"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin
+                </Button>
+              )}
+
+              {profile && (
+                <Badge variant="outline" className="text-xs lg:text-sm px-2 lg:px-3 py-1">
+                  {profile.role === 'admin' ? 'Admin' : 'Usuário'}
+                </Badge>
+              )}
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full border border-slate-200 p-0 overflow-hidden">
-                    <Avatar className="h-10 w-10">
+                  <Button
+                    data-testid="btn-user-menu"
+                    variant="ghost"
+                    className="relative h-10 w-10 lg:h-11 lg:w-11 rounded-full ml-2"
+                  >
+                    <Avatar className="h-10 w-10 lg:h-11 lg:w-11">
                       <AvatarImage src={profile?.avatar_url} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                        {profile?.name?.charAt(0).toUpperCase() || 'U'}
+                      <AvatarFallback className="bg-primary text-white text-base lg:text-lg">
+                        {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-64" align="end" forceMount>
-                  <div className="flex flex-col space-y-1 p-3">
-                    <p className="text-sm font-bold leading-none">{profile?.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground mt-1">{session.user.email}</p>
-                    {profile?.role === 'admin' && (
-                      <Badge variant="secondary" className="w-fit mt-2 bg-blue-50 text-blue-700 hover:bg-blue-50 border-blue-200">
-                        Administrador
-                      </Badge>
-                    )}
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium text-sm">{profile?.name}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/perfil')} className="cursor-pointer py-3">
-                    <User className="mr-3 h-4 w-4" />
-                    <span>Meu Perfil</span>
+                  <DropdownMenuItem onClick={() => navigate('/perfil')}>
+                    <User className="h-4 w-4 mr-2" />
+                    Meu Perfil
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/minhas-ofertas')} className="cursor-pointer py-3">
-                    <Package className="mr-3 h-4 w-4" />
-                    <span>Minhas Ofertas</span>
+                  <DropdownMenuItem onClick={() => navigate('/minhas-ofertas')}>
+                    <Package className="h-4 w-4 mr-2" />
+                    Minhas Ofertas
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/mediacao')} className="cursor-pointer py-3">
-                    <MessageSquare className="mr-3 h-4 w-4" />
-                    <span>Mediação Online</span>
+                  <DropdownMenuItem onClick={() => navigate('/mediacao')}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Mediação Online
                   </DropdownMenuItem>
-
                   {profile?.role === 'admin' && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => navigate('/admin')} className="cursor-pointer py-3 font-semibold text-primary">
-                        <Shield className="mr-3 h-4 w-4" />
-                        <span>Painel Administrativo</span>
+                      <DropdownMenuItem onClick={() => navigate('/admin')}>
+                        <Shield className="h-4 w-4 mr-2" />
+                        Painel Admin
                       </DropdownMenuItem>
                     </>
                   )}
-
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer py-3 text-destructive focus:text-destructive">
-                    <LogOut className="mr-3 h-4 w-4" />
-                    <span>Sair</span>
+                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
+            </>
           ) : (
             <Button
-              data-testid="btn-entrar-desktop"
+              data-testid="btn-entrar"
               onClick={() => navigate('/auth')}
-              className="font-semibold px-6"
+              size="default"
+              className="text-sm lg:text-base px-6"
             >
               Entrar
             </Button>
           )}
         </nav>
 
-        {/* Menu Mobile */}
-        <div className="md:hidden flex items-center">
-          {session ? (
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        {/* ===== MENU MOBILE (Hamburger) - Direita ===== */}
+        <div className="md:hidden flex items-center gap-4 ml-6">
+          {user ? (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-11 w-11 border border-slate-200 rounded-full">
+                <Button variant="outline" size="icon" data-testid="btn-mobile-menu" className="h-11 w-11">
                   <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] sm:w-[350px] p-0">
-                <SheetHeader className="p-6 border-b text-left">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-12 w-12 border-2 border-primary/20">
+              <SheetContent side="right" className="w-[300px] sm:w-[340px]">
+                <SheetHeader className="border-b pb-4 mb-4">
+                  <SheetTitle className="flex items-center gap-3">
+                    <Avatar className="h-14 w-14">
                       <AvatarImage src={profile?.avatar_url} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">
-                        {profile?.name?.charAt(0).toUpperCase() || 'U'}
+                      <AvatarFallback className="bg-primary text-white text-xl">
+                        {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col">
-                      <SheetTitle className="text-lg font-bold truncate max-w-[180px]">
-                        {profile?.name}
-                      </SheetTitle>
-                      <Badge variant="outline" className="w-fit text-[10px] uppercase tracking-tighter h-5">
-                        {profile?.role === 'admin' ? 'Administrador' : 'Membro'}
+                    <div className="text-left">
+                      <p className="font-semibold text-lg">{profile?.name}</p>
+                      <Badge variant="outline" className="text-xs mt-1">
+                        {profile?.role === 'admin' ? 'Administrador' : 'Usuário'}
                       </Badge>
                     </div>
-                  </div>
+                  </SheetTitle>
                 </SheetHeader>
 
-                <nav className="flex flex-col p-4 gap-2">
+                <nav className="flex flex-col gap-1">
                   <Button
                     variant="ghost"
                     className="justify-start h-14 text-base font-medium"
@@ -212,19 +259,19 @@ export default function Header() {
                   <Button
                     variant="ghost"
                     className="justify-start h-14 text-base font-medium"
-                    onClick={() => handleNavigate('/perfil')}
+                    onClick={() => handleNavigate('/minhas-ofertas')}
                   >
-                    <User className="h-5 w-5 mr-4" />
-                    Meu Perfil
+                    <Package className="h-5 w-5 mr-4" />
+                    Minhas Ofertas
                   </Button>
 
                   <Button
                     variant="ghost"
                     className="justify-start h-14 text-base font-medium"
-                    onClick={() => handleNavigate('/minhas-ofertas')}
+                    onClick={() => handleNavigate('/perfil')}
                   >
-                    <Package className="h-5 w-5 mr-4" />
-                    Minhas Ofertas
+                    <User className="h-5 w-5 mr-4" />
+                    Meu Perfil
                   </Button>
 
                   <Button

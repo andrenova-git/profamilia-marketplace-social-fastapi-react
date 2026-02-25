@@ -17,6 +17,7 @@ backend/.env
 # Build outputs
 /build
 /dist
+frontend/build/
 *.egg-info/
 
 # IDE
@@ -43,5 +44,9 @@ coverage/
 # Misc
 *.bak
 *.tmp
+
+# Platform-specific (not needed for external deploy)
+.emergent/
 frontend/node_modules/.cache/default-development/6.pack
-frontend/node_modules/.cache/default-development/4.pack
+frontend/node_modules/.cache/default-development/0.pack
+frontend/node_modules/.cache/default-development/1.pack

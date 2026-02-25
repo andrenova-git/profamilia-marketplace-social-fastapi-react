@@ -16,6 +16,7 @@ const CATEGORIES = [
   { value: 'outros', label: 'Outros' }
 ];
 
+// Offer Details Page - displays full offer information with reviews
 export default function OfferDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ export default function OfferDetailsPage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
 
-  const loadCurrentUser = useCallback(async () => {
+  const loadCurrentUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       const { data: profile } = await supabase
@@ -36,7 +37,7 @@ export default function OfferDetailsPage() {
         .single();
       setCurrentUser(profile);
     }
-  }, []);
+  };
 
   const loadReviews = useCallback(async () => {
     try {
@@ -59,7 +60,6 @@ export default function OfferDetailsPage() {
 
   const loadOffer = useCallback(async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from('offers')
         .select(`
@@ -97,53 +97,52 @@ export default function OfferDetailsPage() {
   useEffect(() => {
     loadOffer();
     loadCurrentUser();
-  }, [loadOffer, loadCurrentUser]);
+  }, [loadOffer]);
 
   const handleContact = async () => {
-    if (!offer) return;
-
     setContacting(true);
-    let whatsappLink = '';
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
-      // Registrar o contato para métricas
+      // 1. Registrar o contato para métricas (Silencioso se falhar)
       if (session?.user) {
-        await supabase
-          .from('contact_logs')
-          .insert([{ offer_id: offer.id, buyer_id: session.user.id }])
-          .catch(() => { });
+        try {
+          await supabase
+            .from('contact_logs')
+            .insert([{ offer_id: offer.id, buyer_id: session.user.id }]);
+        } catch (logError) {
+          console.log('Aviso: Falha ao registrar log de contato', logError);
+        }
       }
 
-      // Notificar o vendedor via WhatsApp
+      // 2. Notificar o vendedor via WhatsApp (API Evolution) - Graceful degradation
       const buyerName = currentUser?.name || 'Alguém';
-      await whatsappService.notifySellerOfInterest(
-        offer.profiles.whatsapp,
-        offer.profiles.name,
-        offer.title,
-        buyerName
-      );
+      if (whatsappService.notifySellerOfInterest) {
+        try {
+          await whatsappService.notifySellerOfInterest(
+            offer.profiles.whatsapp,
+            offer.profiles.name,
+            offer.title,
+            buyerName
+          );
+        } catch (whatsError) {
+          console.log('Aviso: Falha ao notificar vendedor via API. Abrindo link direto.', whatsError);
+        }
+      }
 
-      toast.success('O vendedor foi notificado do seu interesse!');
-
-      // Preparar link do WhatsApp
+      // 3. Redirecionar para o WhatsApp do vendedor (Agora dentro do fluxo seguro)
       const message = `Olá! Vi seu anúncio "${offer.title}" na plataforma Pró-Família e gostaria de mais informações.`;
-      whatsappLink = whatsappService.getWhatsAppLink(offer.profiles.whatsapp, message);
+      const whatsappLink = whatsappService.getWhatsAppLink(offer.profiles.whatsapp, message);
+      window.open(whatsappLink, '_blank');
+
+      toast.success('Iniciando conversa com o vendedor...');
 
     } catch (error) {
-      console.error('Erro ao notificar vendedor:', error);
-      toast.error('Não foi possível notificar o vendedor automaticamente, mas você pode contatá-lo.');
-
-      // Preparar link mesmo com erro na notificação
-      const message = `Olá! Vi seu anúncio "${offer.title}" na plataforma Pró-Família e gostaria de mais informações.`;
-      whatsappLink = whatsappService.getWhatsAppLink(offer.profiles.whatsapp, message);
+      console.error('Erro crítico no processo de contato:', error);
+      toast.error('Ocorreu um erro ao tentar entrar em contato. Tente novamente.');
     } finally {
       setContacting(false);
-      // Abrir WhatsApp após finalizar a lógica (seja sucesso ou erro)
-      if (whatsappLink) {
-        window.open(whatsappLink, '_blank');
-      }
     }
   };
 
@@ -307,7 +306,7 @@ export default function OfferDetailsPage() {
                   {contacting ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Notificando vendedor...
+                      Iniciando contato...
                     </>
                   ) : (
                     <>

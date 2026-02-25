@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 
 // Logo oficial do Pró-Família
-const LOGO_PRO_FAMILIA = 'https://customer-assets.emergentagent.com/job_5d7b81cc-538c-4314-b6b0-7c5977eec78f/artifacts/uszg2ru5_Logo%20Pro-Fam%C3%ADlia%20-%20CDU%2002.png';
+const LOGO_PRO_FAMILIA = '/images/logo-pro-familia.png';
 
 // Lista de códigos de países
 const COUNTRY_CODES = [

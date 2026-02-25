@@ -30,6 +30,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const MAX_IMAGES = 6;
 
+// Mediation Page - handles dispute resolution between users
 export default function MediationPage() {
   const [mediations, setMediations] = useState([]);
   const [allOffers, setAllOffers] = useState([]);
@@ -50,6 +51,7 @@ export default function MediationPage() {
     images: []
   });
 
+  // CORREÇÃO 1: loadData envolvido em useCallback para ser referência estável
   const loadData = useCallback(async (userId, role) => {
     try {
       let query = supabase.from('disputes').select(`
@@ -101,6 +103,7 @@ export default function MediationPage() {
     }
   }, []);
 
+  // CORREÇÃO 2: checkAuth referenciando corretamente o loadData
   const checkAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -180,12 +183,19 @@ export default function MediationPage() {
         .eq('id', offerData.owner_id)
         .single();
 
-      // Notificar via WhatsApp
-      await whatsappService.notifyNewDispute(
-        formData.title,
-        profile.name,
-        defendantProfile.name
-      );
+      // CORREÇÃO 3: Fallback seguro para o WhatsApp. 
+      // A mediação é salva mesmo se o WhatsApp falhar.
+      if (whatsappService.notifyNewDispute) {
+        try {
+          await whatsappService.notifyNewDispute(
+            formData.title,
+            profile.name,
+            defendantProfile.name
+          );
+        } catch (whatsError) {
+          console.log('Aviso: Falha ao enviar notificação do WhatsApp. A mediação foi registrada.', whatsError);
+        }
+      }
 
       toast.success('Solicitação de mediação criada com sucesso!');
       setDialogOpen(false);
@@ -606,10 +616,10 @@ export default function MediationPage() {
                     <div
                       key={idx}
                       className={`p-3 rounded-lg ${msg.type === 'mediator'
-                          ? 'bg-blue-100 border-l-4 border-blue-500'
-                          : msg.author_id === profile?.id
-                            ? 'bg-primary/10 ml-8'
-                            : 'bg-white mr-8'
+                        ? 'bg-blue-100 border-l-4 border-blue-500'
+                        : msg.author_id === profile?.id
+                          ? 'bg-primary/10 ml-8'
+                          : 'bg-white mr-8'
                         }`}
                     >
                       <div className="flex items-center gap-2 mb-1">

@@ -35,6 +35,7 @@ const CATEGORIES = [
   { value: 'outros', label: 'Outros' }
 ];
 
+// My Offers Page - manages user's own products and services
 export default function MyOffersPage() {
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +53,7 @@ export default function MyOffersPage() {
     images: []
   });
 
+  // CORREÇÃO 1: Envolvido em useCallback
   const loadOffers = useCallback(async (userId) => {
     try {
       const { data, error } = await supabase
@@ -69,6 +71,7 @@ export default function MyOffersPage() {
     }
   }, []);
 
+  // CORREÇÃO 2: Dependência do loadOffers adicionada
   const checkAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -94,18 +97,6 @@ export default function MyOffersPage() {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
-
-  const resetForm = useCallback(() => {
-    setFormData({
-      title: '',
-      description: '',
-      price: '',
-      category: 'servicos',
-      neighborhood: '',
-      images: []
-    });
-    setEditingOffer(null);
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -152,7 +143,14 @@ export default function MyOffersPage() {
         if (isAdmin) {
           toast.success('Oferta criada e publicada com sucesso!');
         } else {
-          await whatsappService.notifyNewOffer(formData.title, profile.name);
+          // CORREÇÃO 3: Fallback seguro para o WhatsApp
+          if (whatsappService.notifyNewOffer) {
+            try {
+              await whatsappService.notifyNewOffer(formData.title, profile.name);
+            } catch (whatsError) {
+              console.log('Aviso: Falha ao notificar admin no WhatsApp. A oferta foi salva.', whatsError);
+            }
+          }
           toast.success('Oferta criada! Aguardando aprovação do administrador.');
         }
       }
@@ -198,6 +196,18 @@ export default function MyOffersPage() {
       console.error('Erro ao excluir oferta:', error);
       toast.error('Erro ao excluir oferta');
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      price: '',
+      category: 'servicos',
+      neighborhood: '',
+      images: []
+    });
+    setEditingOffer(null);
   };
 
   if (loading) {

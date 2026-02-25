@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { whatsappService } from '@/lib/whatsappService';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Star, Loader2, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// Component for submitting reviews with duplicate detection
 export default function ReviewForm({ offerId, offerTitle, onReviewSubmitted }) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -15,27 +16,27 @@ export default function ReviewForm({ offerId, offerTitle, onReviewSubmitted }) {
   const [submitting, setSubmitting] = useState(false);
   const [previousReviewsCount, setPreviousReviewsCount] = useState(0);
 
-  useEffect(() => {
-    // Movemos a função para dentro do useEffect para evitar o erro de linting
-    const checkPreviousReviews = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+  // Wrapped in useCallback to satisfy exhaustive-deps rule
+  const checkPreviousReviews = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-        const { count } = await supabase
-          .from('reviews')
-          .select('*', { count: 'exact', head: true })
-          .eq('offer_id', offerId)
-          .eq('author_id', session.user.id);
+      const { count } = await supabase
+        .from('reviews')
+        .select('*', { count: 'exact', head: true })
+        .eq('offer_id', offerId)
+        .eq('author_id', session.user.id);
 
-        setPreviousReviewsCount(count || 0);
-      } catch (error) {
-        console.error('Erro ao verificar avaliações anteriores:', error);
-      }
-    };
-
-    checkPreviousReviews();
+      setPreviousReviewsCount(count || 0);
+    } catch (error) {
+      console.error('Erro ao verificar avaliações anteriores:', error);
+    }
   }, [offerId]);
+
+  useEffect(() => {
+    checkPreviousReviews();
+  }, [checkPreviousReviews]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -90,9 +91,14 @@ export default function ReviewForm({ offerId, offerTitle, onReviewSubmitted }) {
         : null;
 
       if (isRepeat) {
-        await whatsappService.sendMessage(process.env.REACT_APP_ADMIN_WHATSAPP, reviewMessage);
+        // Fallback condicional seguro
+        if (whatsappService.sendMessage && process.env.REACT_APP_ADMIN_WHATSAPP) {
+          await whatsappService.sendMessage(process.env.REACT_APP_ADMIN_WHATSAPP, reviewMessage);
+        }
       } else {
-        await whatsappService.notifyNewReview(offerTitle, authorProfile?.name || 'Usuário', rating);
+        if (whatsappService.notifyNewReview) {
+          await whatsappService.notifyNewReview(offerTitle, authorProfile?.name || 'Usuário', rating);
+        }
       }
 
       toast.success('Avaliação enviada! Aguardando aprovação do moderador.');
@@ -248,31 +254,33 @@ export function ReviewsList({ offerId }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Corrigido de useState para useEffect e movido a função para dentro
-  useEffect(() => {
-    const loadReviews = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('reviews')
-          .select(`
-            *,
-            author:profiles(name)
-          `)
-          .eq('offer_id', offerId)
-          .eq('status', 'approved')
-          .order('created_at', { ascending: false });
+  // CORREÇÃO 1: Transformado em useCallback para referenciar no useEffect
+  const loadReviews = useCallback(async () => {
+    setLoading(true); // Garante que o loading reapareça se a oferta mudar
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select(`
+          *,
+          author:profiles(name)
+        `)
+        .eq('offer_id', offerId)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        setReviews(data || []);
-      } catch (error) {
-        console.error('Erro ao carregar avaliações:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadReviews();
+      if (error) throw error;
+      setReviews(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar avaliações:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [offerId]);
+
+  // CORREÇÃO 2: Alterado de useState para useEffect (Erro crítico do React)
+  useEffect(() => {
+    loadReviews();
+  }, [loadReviews]);
 
   if (loading) {
     return (

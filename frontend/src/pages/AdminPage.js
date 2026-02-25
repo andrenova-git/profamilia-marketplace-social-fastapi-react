@@ -324,11 +324,19 @@ import {
       const { error } = await supabase.from('profiles').delete().eq('id', id);
       if (error) throw error;
 
+      // Remove imediatamente da interface (estado local) para que desapareça da aba e das listagens.
+      // Isso evita que o usuário continue aparecendo caso a exclusão no banco não conclua instantaneamente
+      // ou se o Supabase bloquear silenciosamente a deleção via RLS.
+      setAllProfiles((prev) => prev.filter((p) => p.id !== id));
+      setPendingProfiles((prev) => prev.filter((p) => p.id !== id));
+
       toast.success('Usuário removido.');
-      await Promise.all([loadData(), loadMetrics()]);
+
+      // Atualiza apenas as métricas, sem refazer o loadData completo para não sobrescrever a UI
+      await loadMetrics();
     } catch (e) {
       console.error(e);
-      toast.error('Erro ao excluir. Verifique dependências vinculadas a este perfil.');
+      toast.error('Erro ao excluir. Verifique se existem ofertas, revisões ou transações vinculadas a este perfil.');
     }
   };
 

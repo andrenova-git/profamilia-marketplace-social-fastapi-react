@@ -109,9 +109,31 @@ async def send_whatsapp_message(message: WhatsAppMessage):
             
     except httpx.HTTPError as e:
         logger.error(f"WhatsApp API Error: {str(e)}")
+        try:
+            await db.whatsapp_logs.insert_one({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "level": "error",
+                "message": f"HTTPError: {str(e)}",
+                "number": message.number,
+                "text": message.text,
+                "type": "whatsapp_api_timeout_or_error"
+            })
+        except Exception as log_e:
+            logger.error(f"Failed to log to MongoDB: {str(log_e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao enviar mensagem: {str(e)}")
     except Exception as e:
         logger.error(f"Erro inesperado: {str(e)}")
+        try:
+            await db.whatsapp_logs.insert_one({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "level": "error",
+                "message": f"Unexpected Error: {str(e)}",
+                "number": message.number,
+                "text": message.text,
+                "type": "whatsapp_internal_error"
+            })
+        except Exception as log_e:
+            logger.error(f"Failed to log to MongoDB: {str(log_e)}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
 # Include the router in the main app

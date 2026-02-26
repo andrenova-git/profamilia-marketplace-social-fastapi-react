@@ -19,6 +19,12 @@ export const whatsappService = {
     }
   },
 
+  // Notifica admin sobre novo cadastro
+  async notifyNewRegistration(adminPhone, userName) {
+    const message = `👤 *Novo Usuário Cadastrado*\n\nO usuário *${userName}* acabou de se cadastrar na plataforma Pró-Família Conecta.\n\nAcesse o painel admin para revisar os perfis pendentes.`;
+    return this.sendMessage(adminPhone || ADMIN_WHATSAPP, message);
+  },
+
   // Notifica admin sobre nova oferta pendente
   async notifyNewOffer(offerTitle, ownerName) {
     const message = `🆕 *Nova Oferta Pendente*\n\nOferta: ${offerTitle}\nVendedor: ${ownerName}\n\nAcesse o painel admin para revisar e aprovar.`;
